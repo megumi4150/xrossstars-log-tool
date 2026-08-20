@@ -15,7 +15,7 @@
 
 Round 1の先攻はリーダー編成時に左右から選択します。Round 2以降は前Roundの敗者が自動的に先攻になります。記録一覧の時刻欄は直接修正でき、Enterキーで確定します。
 
-プレイヤー名とデッキ名は任意入力です。空欄のままでも記録・CSV出力でき、入力した場合は対戦開始行の `left_player_name`、`left_deck_name`、`right_player_name`、`right_deck_name` に保存されます。
+プレイヤー名とデッキ名は任意入力です。空欄のままでも記録・CSV出力でき、入力した場合は対戦開始行の `left_player_name`、`left_deck_name`、`right_player_name`、`right_deck_name` に保存されます。試合開始を記録した後でも編集でき、変更内容は対戦開始行へ自動反映されます。
 
 ## プライバシー
 
