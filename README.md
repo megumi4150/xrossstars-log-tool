@@ -29,6 +29,10 @@ Round 1の先攻はリーダー編成時に左右から選択します。Round 2
 
 https://megumi4150.github.io/xrossstars-log-tool/
 
+画像付き使い方ガイド:
+
+https://megumi4150.github.io/xrossstars-log-tool/guide.html
+
 ## ライセンス
 
 ライセンスは付与していません。ソースコードや収録データの再利用については管理者へ確認してください。
