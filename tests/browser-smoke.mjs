@@ -32,11 +32,11 @@ await send('Page.reload', { ignoreCache: true });
 for (let attempt = 0; attempt < 40; attempt++) {
   await new Promise(resolve => setTimeout(resolve, 100));
   const ready = await send('Runtime.evaluate', {
-    expression: `document.readyState === 'complete' && document.title.includes('v11')`,
+    expression: `document.readyState === 'complete' && document.title.includes('v12')`,
     returnByValue: true
   });
   if (ready.result.value) break;
-  if (attempt === 39) throw new Error('Updated v11 page did not finish loading.');
+  if (attempt === 39) throw new Error('Updated v12 page did not finish loading.');
 }
 const expression = `(() => {
   localStorage.clear();
@@ -96,7 +96,64 @@ const expression = `(() => {
   const speedOn = video.playbackRate === 1.5 && document.getElementById('speed').classList.contains('speed-active');
   document.getElementById('speed').click();
   const speedOff = video.playbackRate === 1 && !document.getElementById('speed').classList.contains('speed-active');
-  return {initial, edited, roundReset, speedOn, speedOff};
+
+  const makeStatLeader = (id, name) => ({id,name,hp:130,atk:30,awaken_hp:160,awaken_atk:40,effect:''});
+  roster = {
+    left: ['L1','L2','L3','L4'].map((id, i) => makeStatLeader(id, 'Left ' + (i + 1))),
+    right: ['R1','R2','R3','R4'].map((id, i) => makeStatLeader(id, 'Right ' + (i + 1)))
+  };
+  const card = name => allCards.find(item => item.name === name);
+  const light = card('ライトシールド');
+  const body = card('ボディアーマー');
+  const cyber = card('サイバネアーマー');
+  const knuckle = card('メリケンサック');
+  const field = card('パワーフィールド');
+  const tacticsRows = [
+    {event:'match_start',side:'left',first_player:'left'},
+    {event:'damage',side:'right',attacker:'R1',target:'L1',damage:90},
+    {event:'tactics',side:'left',target:'L1',effect:light.effect},
+    {event:'tactics',side:'left',target:'L2',tactics_mode:'equipment',effect:body.effect},
+    {event:'tactics',side:'left',target:'L3',tactics_mode:'equipment',effect:cyber.effect},
+    {event:'tactics',side:'left',target:'L4',tactics_mode:'equipment',effect:cyber.effect},
+    {event:'awaken',side:'left',leader:'L4'},
+    {event:'tactics',side:'right',target:'R1',tactics_mode:'equipment',effect:knuckle.effect},
+    {event:'tactics',side:'right',tactics_mode:'round',effect:field.effect}
+  ];
+  const tacticsState = replayTimeline(tacticsRows, false).final;
+  const afterRoundState = replayTimeline([...tacticsRows, {event:'round',round:1,winner:'left'}], false).final;
+  const tactics = {
+    lightHp: Math.max(0, maxHpAt('L1', tacticsState) - tacticsState.damage.L1),
+    lightMax: maxHpAt('L1', tacticsState),
+    bodyMax: maxHpAt('L2', tacticsState),
+    cyberNormalMax: maxHpAt('L3', tacticsState),
+    cyberAwakeMax: maxHpAt('L4', tacticsState),
+    knuckleAndFieldAtk: attackAt('R1', tacticsState),
+    afterRoundAtk: attackAt('R1', afterRoundState)
+  };
+
+  const freefall = card('懺悔のフリーフォール');
+  const flashbang = allCards.find(item => item.name === 'フラッシュバン' && item.type === 'attack');
+  turn = 'left';
+  events = [{event:'memoria',side:'left',card_id:freefall.id,card_name:freefall.name,card_code:freefall.code,card_type:freefall.type,card_image:freefall.image_url,card_local_image:freefall.local_image,effect:freefall.effect}];
+  timelineCache = replayTimeline(events, false);
+  const sources = collectAfterAttackSources(flashbang, 'L1', 'R1');
+  const annihilationSource = sourceFromCard(allCards.find(item => item.name === 'アナイアレーション'), 'annihilation-test', 'L1', 'R1');
+  const annihilationDamageTargets = derivedTargetSpec(annihilationSource).ids;
+  annihilationSource.operation_index = 1;
+  const annihilationHealTargets = derivedTargetSpec(annihilationSource).ids;
+  const crownSource = sourceFromCard(allCards.find(item => item.name === '初の栄冠'), 'crown-test', 'L1', 'R1');
+  const postAttack = {
+    names: sources.map(item => item.card_name),
+    amounts: sources.map(item => item.operations[0]?.amount),
+    targetIds: derivedTargetSpec(sources[0]).ids,
+    overkillCount: afterAttackOperations(allCards.find(item => item.name === '一斧両断').effect).length,
+    ppRecoveryCount: afterAttackOperations(allCards.find(item => item.name === 'ブリーチングフォース').effect).length,
+    annihilationOps: afterAttackOperations(allCards.find(item => item.name === 'アナイアレーション').effect).map(item => item.operation),
+    annihilationDamageTargets,
+    annihilationHealTargets,
+    crownTargets: derivedTargetSpec(crownSource).ids
+  };
+  return {initial, edited, roundReset, speedOn, speedOff, tactics, postAttack};
 })()`;
 
 const evaluation = await send('Runtime.evaluate', {
@@ -141,7 +198,24 @@ const expected =
   result.roundReset.leftScore === 1 &&
   result.roundReset.postResetBefore === 0 &&
   result.speedOn &&
-  result.speedOff;
+  result.speedOff &&
+  result.tactics.lightHp === 70 &&
+  result.tactics.lightMax === 160 &&
+  result.tactics.bodyMax === 170 &&
+  result.tactics.cyberNormalMax === 140 &&
+  result.tactics.cyberAwakeMax === 170 &&
+  result.tactics.knuckleAndFieldAtk === 50 &&
+  result.tactics.afterRoundAtk === 40 &&
+  result.postAttack.names.join('|') === '懺悔のフリーフォール|フラッシュバン' &&
+  result.postAttack.amounts.join('|') === '10|20' &&
+  !result.postAttack.targetIds.includes('R1') &&
+  result.postAttack.targetIds.length === 3 &&
+  result.postAttack.overkillCount === 1 &&
+  result.postAttack.ppRecoveryCount === 0 &&
+  result.postAttack.annihilationOps.join('|') === 'damage|heal' &&
+  result.postAttack.annihilationDamageTargets.join('|') === 'R2|R3|R4' &&
+  result.postAttack.annihilationHealTargets.join('|') === 'L1|L2|L3|L4' &&
+  result.postAttack.crownTargets.join('|') === 'R2|R3|R4';
 
 if (!expected) throw new Error(`Smoke test failed: ${JSON.stringify(result, null, 2)}`);
 console.log(JSON.stringify({ success: true, ...result }, null, 2));
