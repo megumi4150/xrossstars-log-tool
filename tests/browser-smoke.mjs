@@ -32,11 +32,11 @@ await send('Page.reload', { ignoreCache: true });
 for (let attempt = 0; attempt < 40; attempt++) {
   await new Promise(resolve => setTimeout(resolve, 100));
   const ready = await send('Runtime.evaluate', {
-    expression: `document.readyState === 'complete' && document.title.includes('v12')`,
+    expression: `document.readyState === 'complete' && document.title.includes('v13')`,
     returnByValue: true
   });
   if (ready.result.value) break;
-  if (attempt === 39) throw new Error('Updated v12 page did not finish loading.');
+  if (attempt === 39) throw new Error('Updated v13 page did not finish loading.');
 }
 const expression = `(() => {
   localStorage.clear();
