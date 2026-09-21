@@ -35,8 +35,12 @@
    const p=await CardDB.download(m);
    if(document.querySelector('dialog[open]')||selectedCard||pendingAttack||pendingTactics||afterAttackSources.length)throw Error('カード処理が始まったため更新を中断しました。処理完了後に再度更新してください');
    const active=events.length>0||allRoster().some(l=>l.card_id),existing=new Set(allCards.map(c=>c.id)),added=p.cards.filter(c=>!existing.has(c.id));
-   if(!confirm(`${p.total}枚のDBを読み込みます（新規${added.length}枚）。${active?'\n作業中のため、新カードのみ追加します。既存カード・編成・ログ・HPは変更しません。':''}\n${p.cards.filter(c=>c.review_required).length}枚は新しい効果の確認が必要です。`))return;
-   const next=active?{...p,upstream_version:p.version,version:version()+'+'+p.version,cards:[...allCards,...added],total:allCards.length+added.length}:p;
+   // Only lift review flags when all substantive card data is byte-for-byte equal.
+   const substantive=c=>JSON.stringify(Object.entries(c).filter(([k])=>k!=='review_required').sort(([a],[b])=>a.localeCompare(b)));
+   const retained=allCards.map(c=>{const fresh=p.cards.find(n=>n.id===c.id);return c.review_required&&fresh?.review_required===false&&substantive(c)===substantive(fresh)?{...c,review_required:false}:c});
+   const approved=retained.filter((c,i)=>c!==allCards[i]).length;
+   if(!confirm(`${p.total}枚のDBを読み込みます（新規${added.length}枚・要確認解除${approved}枚）。${active?'\n作業中のため、新カード追加と同一内容の確認解除だけを反映します。既存カードの内容・編成・ログ・HPは変更しません。':''}\n${p.cards.filter(c=>c.review_required).length}枚は新しい効果の確認が必要です。`))return;
+   const next=active?{...p,upstream_version:p.version,version:version()+'+'+p.version,cards:[...retained,...added],total:allCards.length+added.length}:p;
    // Persist before touching in-memory state; a quota failure leaves the old database intact.
    CardDB.commit(next);allCards.splice(0,allCards.length,...next.cards);leaders.splice(0,leaders.length,...allCards.filter(c=>c.type==='leader'));playCards.splice(0,playCards.length,...allCards.filter(c=>c.type!=='leader'));renderAll();display(active?'既存データ固定':'最新');notify('カードDBを更新しました');
   }catch(e){display('更新失敗・旧DBを維持');alert(e.message+'\n既存のDBとログはそのまま使用できます。');}finally{button.disabled=false;}

@@ -228,6 +228,6 @@
     try{const old=JSON.parse(localStorage.getItem('xrossstars-log-v6-final')||'null');if(old){events=old.events||[];const start=events.find(e=>e.event==='match_start');firstPlayer=old.firstPlayer||start?.first_player||start?.side||'';turn=old.turn||firstPlayer||'right';round=old.round||1;score=old.score||{left:0,right:0};roster=old.roster||roster;matchInfo=old.matchInfo||{left:{player_name:start?.left_player_name||'',deck_name:start?.left_deck_name||''},right:{player_name:start?.right_player_name||'',deck_name:start?.right_deck_name||''}};setupCollapsed=old.setupCollapsed??events.some(e=>e.event==='match_start')}}catch{}recalculateTimeline();renderAll();syncVideo();
   </script>
   <script src="play-effects.js?v=13"></script>
-  <script src="card-db-ui.js?v=1"></script>
+  <script src="card-db-ui.js?v=2"></script>
 </body>
 </html>

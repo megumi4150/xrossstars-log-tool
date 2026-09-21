@@ -40,6 +40,22 @@ try{
  await page.click('#update-card-db');await page.waitForFunction(()=>!document.getElementById('update-card-db').disabled);assert.equal(await page.evaluate(()=>allCards.length),593);
  await page.evaluate(()=>{const old=Storage.prototype.setItem;Storage.prototype.setItem=()=>{throw Error('quota')};try{CardDB.commit({...CardDB.current,version:'failed'});}catch{}finally{Storage.prototype.setItem=old}});
  assert.notEqual(await page.evaluate(()=>CardDB.current.version),'failed');
+ // Existing sessions must receive review approval without changing history or HP.
+ const oldDb=JSON.parse(fs.readFileSync(path.join(assets,'db/cards-65e4e62a0356e852ed34.json'),'utf8'));
+ manifest=realManifest;body=fs.readFileSync(path.join(assets,'db',manifest.file),'utf8');
+ await page.evaluate(db=>localStorage.setItem('xrossstars-card-db-v1',JSON.stringify(db)),oldDb);
+ await page.reload({waitUntil:'load'});
+ const saved=await page.evaluate(()=>JSON.stringify({events,roster,timelineCache}));
+ assert(await page.evaluate(()=>[616,627,628].every(id=>cardById(id).review_required)));
+ await page.click('#update-card-db');await page.waitForFunction(()=>!document.getElementById('update-card-db').disabled);
+ assert.equal(await page.evaluate(()=>JSON.stringify({events,roster,timelineCache})),saved);
+ assert(await page.evaluate(()=>[616,627,628].every(id=>cardById(id).review_required===false)));
+ const rules=await page.evaluate(()=>{
+  const results=[616,627,628].map(id=>({id,bonus:attackBonus(cardById(id).effect),hp:afterAttackOperations(cardById(id).effect)}));
+  events=[{event:'memoria',side:'left',effect:'【アタック強化】ダメージ+50。'}];turn='left';
+  return {results,memoria:pendingMemoriaBonus()};
+ });
+ assert(rules.results.every(r=>r.bonus===0&&r.hp.length===0));assert.equal(rules.memoria,50);
  assert.deepEqual(errors,[]);await page.screenshot({path:path.resolve(root,'../tmp/card-db-ui-proof.png')});
  console.log(JSON.stringify({ok:true,cases:['34 new cards','leader variants','active log and HP preserved','append only','failure rollback','cache restored','CSV event version','hash mismatch','quota failure']}));
 }finally{await browser.close()}
