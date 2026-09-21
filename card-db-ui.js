@@ -32,7 +32,9 @@
   if(document.querySelector('dialog[open]')||selectedCard||pendingAttack||pendingTactics||afterAttackSources.length)return alert('カード使用・効果処理を完了または取り消してから更新してください。');
   button.disabled=true;try{
    const m=await check();if(m.version===version()||m.version===CardDB.current.upstream_version)return notify('公開されている最新版です');
-   const p=await CardDB.download(m),active=events.length>0||allRoster().some(l=>l.card_id),existing=new Set(allCards.map(c=>c.id)),added=p.cards.filter(c=>!existing.has(c.id));
+   const p=await CardDB.download(m);
+   if(document.querySelector('dialog[open]')||selectedCard||pendingAttack||pendingTactics||afterAttackSources.length)throw Error('カード処理が始まったため更新を中断しました。処理完了後に再度更新してください');
+   const active=events.length>0||allRoster().some(l=>l.card_id),existing=new Set(allCards.map(c=>c.id)),added=p.cards.filter(c=>!existing.has(c.id));
    if(!confirm(`${p.total}枚のDBを読み込みます（新規${added.length}枚）。${active?'\n作業中のため、新カードのみ追加します。既存カード・編成・ログ・HPは変更しません。':''}\n${p.cards.filter(c=>c.review_required).length}枚は新しい効果の確認が必要です。`))return;
    const next=active?{...p,upstream_version:p.version,version:version()+'+'+p.version,cards:[...allCards,...added],total:allCards.length+added.length}:p;
    // Persist before touching in-memory state; a quota failure leaves the old database intact.
